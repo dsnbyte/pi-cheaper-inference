@@ -2,27 +2,14 @@
 
 A Pi extension that adds the Cheaper Inference provider with API key login and a curated model picker.
 
-## Why pi-cheaper-inference?
-
-Cheaper Inference exposes a large catalog of hundreds of models across multiple upstream providers. Loading every model automatically creates friction:
-
-- **Cluttered Model Picker**: Hundreds of unused models make `/model` slow to scan and hard to navigate.
-- **No Curated Workspace List**: Most workflows rely on a handful of preferred models rather than the entire marketplace.
-- **Manual Configuration Drift**: Hand-editing `models.json` requires tracking context windows, pricing, and compatibility flags yourself.
-
-`pi-cheaper-inference` solves this with an opt-in workflow:
-
-- **Empty Until You Pick**: No models are added to Pi's `/model` list by default.
-- **Curated `/cheaper-models` Menu**: Fetch the live catalog, search by model ID or provider, inspect pricing and capabilities, and toggle only the models you want.
-- **Automatic Metadata Mapping**: Context windows, token pricing, vision/reasoning flags, and Claude prompt-cache compatibility are populated from the live catalog.
+[Cheaper Inference](https://www.cheaperinference.com/) is an inference API provider offering unified access to models from multiple upstream providers. `pi-cheaper-inference` integrates it into Pi so you can authenticate with your API key, choose the models you want with `/cheaper-models`, and use them in Pi via `/model`.
 
 ## Features
 
-- **API Key Authentication**: Sign in via Pi's built-in `/login` command or `CHEAPER_INFERENCE_API_KEY`.
-- **Interactive Model Picker**: Searchable TUI list with context size, `$in/$out` per 1M tokens, and `reasoning`/`vision` tags.
-- **Local Catalog Caching**: Caches the fetched catalog in `~/.pi/agent/cheaper-inference-cache.json` for 1 hour so reopening `/cheaper-models` is instant, with manual refresh via `Ctrl+R` or `/cheaper-models refresh`.
-- **Persistent Selection**: Saves your selected models locally in `~/.pi/agent/cheaper-inference.json` for offline startup without extra network calls.
-- **Live Registration**: Updates Pi's `/model` list immediately after closing `/cheaper-models`.
+- **API Key Authentication**: Sign in via `/login` or the `CHEAPER_INFERENCE_API_KEY` environment variable.
+- **Interactive Model Picker**: Search and filter available models, inspect pricing and capabilities, and toggle the ones you want.
+- **Persistent Selection**: Saves your chosen models across Pi sessions.
+- **Live Registration**: Updates Pi's `/model` list as soon as you close `/cheaper-models`.
 
 ## Installation
 
@@ -78,8 +65,8 @@ Selected model snapshots are stored at `~/.pi/agent/cheaper-inference.json`:
   "models": [
     {
       "type": "chat",
-      "id": "claude-opus-4.6",
-      "name": "claude-opus-4.6"
+      "id": "gemini-4-neon",
+      "name": "gemini-4-neon"
     }
   ]
 }
