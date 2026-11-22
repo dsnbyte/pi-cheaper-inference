@@ -20,6 +20,7 @@ Cheaper Inference exposes a large catalog of hundreds of models across multiple 
 
 - **API Key Authentication**: Sign in via Pi's built-in `/login` command or `CHEAPER_INFERENCE_API_KEY`.
 - **Interactive Model Picker**: Searchable TUI list with context size, `$in/$out` per 1M tokens, and `reasoning`/`vision` tags.
+- **Local Catalog Caching**: Caches the fetched catalog in `~/.pi/agent/cheaper-inference-cache.json` for 1 hour so reopening `/cheaper-models` is instant, with manual refresh via `Ctrl+R` or `/cheaper-models refresh`.
 - **Persistent Selection**: Saves your selected models locally in `~/.pi/agent/cheaper-inference.json` for offline startup without extra network calls.
 - **Live Registration**: Updates Pi's `/model` list immediately after closing `/cheaper-models`.
 
@@ -61,7 +62,10 @@ In the interactive picker:
 - **Type** to filter models by ID, owner, or provider.
 - **Up / Down / PgUp / PgDn / Home / End** to move through the list.
 - **Space / Enter** to toggle whether a model is included.
+- **Ctrl+R** (or **F5**) to manually refresh the model list from the provider.
 - **Esc** to save your selection and update `/model`.
+
+You can also run `/cheaper-models refresh` to force an immediate catalog refresh when opening the menu.
 
 After selecting models, switch to any of them with `/model`.
 
