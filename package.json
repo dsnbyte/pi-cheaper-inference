@@ -1,6 +1,6 @@
 {
   "name": "@dsnbyte/pi-cheaper-inference",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi extension that adds the Cheaper Inference provider with API key login and a curated model picker",
   "type": "module",
   "author": "dsnbyte",

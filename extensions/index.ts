@@ -255,12 +255,17 @@ function formatKeyHint(th: Theme, key: string, desc: string): string {
   return th.fg("accent", key) + th.fg("dim", ` ${desc}`);
 }
 
+interface PickerResult {
+  selected: Set<string>;
+  activateModelId?: string;
+}
+
 class ModelPickerComponent implements Component {
   private catalog: CatalogModel[];
   private selected: Set<string>;
   private tui: TUI;
   private theme: Theme;
-  private onDone: (result: Set<string> | undefined) => void;
+  private onDone: (result: PickerResult | undefined) => void;
   private onRefresh?: (signal: AbortSignal) => Promise<CatalogModel[]>;
   private cursorIndex = 0;
   private scrollTop = 0;
@@ -277,7 +282,7 @@ class ModelPickerComponent implements Component {
     selectedIds: Set<string>,
     tui: TUI,
     theme: Theme,
-    onDone: (result: Set<string> | undefined) => void,
+    onDone: (result: PickerResult | undefined) => void,
     onRefresh?: (signal: AbortSignal) => Promise<CatalogModel[]>,
   ) {
     this.catalog = catalog;
@@ -299,7 +304,7 @@ class ModelPickerComponent implements Component {
     );
   }
 
-  private close(result: Set<string> | undefined): void {
+  private close(result: PickerResult | undefined): void {
     this.closed = true;
     this.refreshController?.abort();
     this.onDone(result);
@@ -423,6 +428,7 @@ class ModelPickerComponent implements Component {
     const hints = [
       formatKeyHint(th, "↑↓", "move"),
       formatKeyHint(th, "space", "toggle"),
+      formatKeyHint(th, "enter", "use & close"),
       formatKeyHint(th, "type", "to search"),
       formatKeyHint(th, "ctrl+r", this.isRefreshing ? "refreshing" : "refresh"),
       formatKeyHint(th, "esc", "save & close"),
@@ -439,7 +445,7 @@ class ModelPickerComponent implements Component {
     const filtered = this.getFiltered();
 
     if (matchesKey(data, "escape")) {
-      this.close(new Set(this.selected));
+      this.close({ selected: new Set(this.selected) });
       return;
     }
 
@@ -455,13 +461,16 @@ class ModelPickerComponent implements Component {
 
     this.statusMessage = undefined;
 
-    if (
-      matchesKey(data, "space") ||
-      data === " " ||
-      matchesKey(data, "enter") ||
-      data === "\r" ||
-      data === "\n"
-    ) {
+    if (matchesKey(data, "enter") || data === "\r" || data === "\n") {
+      const model = filtered[this.cursorIndex];
+      if (model) {
+        this.selected.add(model.id);
+        this.close({ selected: new Set(this.selected), activateModelId: model.id });
+      }
+      return;
+    }
+
+    if (matchesKey(data, "space") || data === " ") {
       const model = filtered[this.cursorIndex];
       if (model) {
         if (this.selected.has(model.id)) {
@@ -571,7 +580,7 @@ export default function cheaperInferenceExtension(pi: ExtensionAPI, options?: Ch
 
   registerProvider(savedConfig.models);
 
-  pi.registerCommand("cheaper-models", {
+  pi.registerCommand("cheaper-inference-models", {
     description: "Choose which Cheaper Inference models appear in the model list",
     getArgumentCompletions: (prefix: string) => {
       const normalized = prefix.trim().toLowerCase();
@@ -630,7 +639,7 @@ export default function cheaperInferenceExtension(pi: ExtensionAPI, options?: Ch
         return;
       }
 
-      const nextSelected = await ctx.ui.custom<Set<string> | undefined>((tui, theme, _kb, done) => {
+      const pickerResult = await ctx.ui.custom<PickerResult | undefined>((tui, theme, _kb, done) => {
         return new ModelPickerComponent(catalog, selectedIds, tui, theme, done, async (signal) => {
           const refreshed = await fetchAndCacheCatalog(apiKey, signal);
           catalog = refreshed;
@@ -638,7 +647,7 @@ export default function cheaperInferenceExtension(pi: ExtensionAPI, options?: Ch
         });
       });
 
-      if (!nextSelected) {
+      if (!pickerResult) {
         return;
       }
 
@@ -646,7 +655,7 @@ export default function cheaperInferenceExtension(pi: ExtensionAPI, options?: Ch
       const previousById = new Map(savedConfig.models.map((m) => [m.id, m]));
       const nextModels: ProviderModelConfig[] = [];
 
-      for (const id of Array.from(nextSelected).sort()) {
+      for (const id of Array.from(pickerResult.selected).sort()) {
         const catalogModel = catalogById.get(id);
         if (catalogModel) {
           nextModels.push(toPiModel(catalogModel));
@@ -661,6 +670,31 @@ export default function cheaperInferenceExtension(pi: ExtensionAPI, options?: Ch
       savedConfig = { models: nextModels };
       saveConfig(configFile, savedConfig);
       registerProvider(nextModels);
+
+      if (pickerResult.activateModelId) {
+        const model = ctx.modelRegistry.find(PROVIDER_ID, pickerResult.activateModelId);
+        if (model) {
+          const success = await pi.setModel(model);
+          if (success) {
+            ctx.ui.notify(
+              `Active model set to ${pickerResult.activateModelId} (${nextModels.length} Cheaper Inference model(s) in /model).`,
+              "info",
+            );
+            return;
+          }
+          ctx.ui.notify(
+            `Saved ${nextModels.length} Cheaper Inference model(s), but could not activate ${pickerResult.activateModelId}.`,
+            "warning",
+          );
+          return;
+        }
+        ctx.ui.notify(
+          `Saved ${nextModels.length} Cheaper Inference model(s), but ${pickerResult.activateModelId} was not found in model registry.`,
+          "warning",
+        );
+        return;
+      }
+
       ctx.ui.notify(`${nextModels.length} Cheaper Inference model(s) available in /model.`, "info");
     },
   });

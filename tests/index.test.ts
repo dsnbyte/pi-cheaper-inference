@@ -21,9 +21,10 @@ function makeModel(id: string): CatalogModel {
   };
 }
 
-function createHarness(configPath: string) {
+function createHarness(configPath: string, setModelResult = true) {
   const registeredProviders: Array<{ id: string; config: any }> = [];
   const commands = new Map<string, RegisteredCommandMock>();
+  const setModelCalls: any[] = [];
 
   const pi = {
     registerProvider(id: string, config: any) {
@@ -32,14 +33,18 @@ function createHarness(configPath: string) {
     registerCommand(name: string, options: RegisteredCommandMock) {
       commands.set(name, options);
     },
+    async setModel(model: any) {
+      setModelCalls.push(model);
+      return setModelResult;
+    },
   };
 
   cheaperInferenceExtension(pi as any, { configPath });
 
-  const command = commands.get("cheaper-models");
-  assert.ok(command, "cheaper-models command should be registered");
+  const command = commands.get("cheaper-inference-models");
+  assert.ok(command, "cheaper-inference-models command should be registered");
 
-  return { registeredProviders, command };
+  return { registeredProviders, command, setModelCalls };
 }
 
 function createMockTheme() {
@@ -62,7 +67,10 @@ function createMockTui() {
   };
 }
 
-function createMockContext(customHandler?: (factory: any) => Promise<Set<string> | undefined>) {
+function createMockContext(
+  customHandler?: (factory: any) => Promise<any>,
+  registeredProviders?: Array<{ id: string; config: any }>,
+) {
   const notifications: Array<{ message: string; type?: string }> = [];
   const ctx = {
     mode: customHandler ? "tui" : "print",
@@ -70,6 +78,12 @@ function createMockContext(customHandler?: (factory: any) => Promise<Set<string>
     modelRegistry: {
       async getApiKeyForProvider() {
         return "ci_test_key";
+      },
+      find(provider: string, modelId: string) {
+        if (!registeredProviders) return undefined;
+        const latest = [...registeredProviders].reverse().find((p) => p.id === provider);
+        const model = latest?.config?.models?.find((m: any) => m.id === modelId);
+        return model ? { provider, ...model } : undefined;
       },
     },
     ui: {
@@ -283,7 +297,7 @@ describe("pi-cheaper-inference catalog caching", () => {
     assert.equal(updatedCache.models[0].id, "beta-model");
   });
 
-  it("supports /cheaper-models refresh to bypass fresh cache", async () => {
+  it("supports /cheaper-inference-models refresh to bypass fresh cache", async () => {
     writeFileSync(
       cachePath,
       JSON.stringify({ fetchedAt: Date.now() - 10_000, models: [makeModel("old-model")] }),
@@ -348,5 +362,76 @@ describe("pi-cheaper-inference catalog caching", () => {
     });
 
     await command.handler("", ctx);
+  });
+
+  it("activates the highlighted model with Enter, sets it as active, saves, and closes", async () => {
+    writeFileSync(
+      cachePath,
+      JSON.stringify({ fetchedAt: Date.now() - 10_000, models: [makeModel("model-a"), makeModel("model-b")] }),
+      "utf-8",
+    );
+
+    const { command, registeredProviders, setModelCalls } = createHarness(configPath);
+    const { ctx, notifications } = createMockContext(async (factory) => {
+      const tui = createMockTui();
+      let doneResult: any;
+      const component = factory(tui, createMockTheme(), {}, (r: any) => {
+        doneResult = r;
+      });
+
+      const rendered = component.render(120).join("\n");
+      assert.match(rendered, /space toggle/);
+      assert.match(rendered, /enter use & close/);
+      assert.match(rendered, /esc save & close/);
+
+      // Toggle model-a with Space, move down to model-b, press Enter to use & close
+      component.handleInput(" ");
+      component.handleInput("\x1b[B"); // Down arrow
+      component.handleInput("\r"); // Enter
+
+      return doneResult;
+    }, registeredProviders);
+
+    await command.handler("", ctx);
+
+    const savedConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+    assert.deepEqual(
+      savedConfig.models.map((m: any) => m.id),
+      ["model-a", "model-b"],
+    );
+    assert.equal(setModelCalls.length, 1);
+    assert.equal(setModelCalls[0].provider, "cheaper-inference");
+    assert.equal(setModelCalls[0].id, "model-b");
+    assert.match(notifications[0].message, /Active model set to model-b/);
+  });
+
+  it("keeps Escape saving without changing the active model", async () => {
+    writeFileSync(
+      cachePath,
+      JSON.stringify({ fetchedAt: Date.now() - 10_000, models: [makeModel("model-a")] }),
+      "utf-8",
+    );
+
+    const { command, registeredProviders, setModelCalls } = createHarness(configPath);
+    const { ctx, notifications } = createMockContext(async (factory) => {
+      const tui = createMockTui();
+      let doneResult: any;
+      const component = factory(tui, createMockTheme(), {}, (r: any) => {
+        doneResult = r;
+      });
+      component.handleInput(" ");
+      component.handleInput("\x1b");
+      return doneResult;
+    }, registeredProviders);
+
+    await command.handler("", ctx);
+
+    const savedConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+    assert.deepEqual(
+      savedConfig.models.map((m: any) => m.id),
+      ["model-a"],
+    );
+    assert.equal(setModelCalls.length, 0);
+    assert.match(notifications[0].message, /1 Cheaper Inference model\(s\) available in \/model\./);
   });
 });

@@ -2,14 +2,14 @@
 
 A Pi extension that adds the Cheaper Inference provider with API key login and a curated model picker.
 
-[Cheaper Inference](https://www.cheaperinference.com/) is an inference API provider offering unified access to models from multiple upstream providers. `pi-cheaper-inference` integrates it into Pi so you can authenticate with your API key, choose the models you want with `/cheaper-models`, and use them in Pi via `/model`.
+[Cheaper Inference](https://www.cheaperinference.com/) is an inference API provider offering unified access to models from multiple upstream providers. `pi-cheaper-inference` integrates it into Pi so you can authenticate with your API key, choose the models you want with `/cheaper-inference-models`, and use them in Pi via `/model`.
 
 ## Features
 
 - **API Key Authentication**: Sign in via `/login` or the `CHEAPER_INFERENCE_API_KEY` environment variable.
 - **Interactive Model Picker**: Search and filter available models, inspect pricing and capabilities, and toggle the ones you want.
 - **Persistent Selection**: Saves your chosen models across Pi sessions.
-- **Live Registration**: Updates Pi's `/model` list as soon as you close `/cheaper-models`.
+- **Live Registration**: Updates Pi's `/model` list as soon as you close `/cheaper-inference-models`.
 
 ## Installation
 
@@ -41,18 +41,19 @@ export CHEAPER_INFERENCE_API_KEY=ci_live_your_key
 Open the model selector inside an active Pi session:
 
 ```text
-/cheaper-models
+/cheaper-inference-models
 ```
 
 In the interactive picker:
 
 - **Type** to filter models by ID, owner, or provider.
 - **Up / Down / PgUp / PgDn / Home / End** to move through the list.
-- **Space / Enter** to toggle whether a model is included.
+- **Space** to toggle whether a model is included.
+- **Enter** to activate the highlighted model, set it as the active model, save, and close.
 - **Ctrl+R** (or **F5**) to manually refresh the model list from the provider.
 - **Esc** to save your selection and update `/model`.
 
-You can also run `/cheaper-models refresh` to force an immediate catalog refresh when opening the menu.
+You can also run `/cheaper-inference-models refresh` to force an immediate catalog refresh when opening the menu.
 
 After selecting models, switch to any of them with `/model`.
 

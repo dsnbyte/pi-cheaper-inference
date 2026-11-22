@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project Overview
-`@dsnbyte/pi-cheaper-inference` is a Pi Coding Agent extension that registers the Cheaper Inference provider with API key authentication and an interactive TUI model picker (`/cheaper-models`).
+`@dsnbyte/pi-cheaper-inference` is a Pi Coding Agent extension that registers the Cheaper Inference provider with API key authentication and an interactive TUI model picker (`/cheaper-inference-models`).
 
 ---
 
